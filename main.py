@@ -1,88 +1,83 @@
-import tkinter as tk
-from tkinter import *
-from tkinter import filedialog
-from tkinter.ttk import Combobox
-import pyttsx3
+import speech_recognition as sr
+from gtts import gTTS
+import pygame
 import os
+import requests
+from playsound import playsound
 
-root = tk.Tk()
-root.title("Text to speech")
-root.geometry("900x450+600+200")
-root.resizable(False,False)
-root.configure(bg="#305065")
+# Define the directory where the stories are stored
+directory = "stories"
 
-engine = pyttsx3.init()
+# Get a list of all the files in the directory
+files = os.listdir(directory)
 
-def speak_now():
-    text= text_1area.get(1.0,END)
-    gender = gender_combobox.get()
-    speed = speed_combobox.get()
-    voices  = engine.getProperty('voices')
+# Loop through each file and read in the contents
+stories = {}
+for file in files:
+    # Check that the file is a text file
+    if file.endswith(".txt"):
+        # Open the file and read in the contents
+        with open(os.path.join(directory, file), "r") as f:
+            story = f.read()
+            stories[file[:-4]] = story
 
-    def setvoice():
-        if gender == "Male":
-            engine.setProperty('voice',voices[0].id)
-            engine.say(text)
-            engine.runAndWait()
-        else:
-            engine.setProperty('voice',voices[1].id)
-            engine.say(text)
-            engine.runAndWait()
-    if(text):
-        if(speed == "Fast"):
-            engine.setProperty('rate',250)
-            setvoice()
-        elif(speed == 'Normal'):
-            engine.setProperty('rate', 150)
-            setvoice()
-        else:
-            engine.setProperty('rate', 50)
-            setvoice()
+# initialize the speech recognizer
+r = sr.Recognizer()
 
+def Saluting(saluting):
+    tts = gTTS(saluting)
+    tts.save('st.mp3')
+    pygame.mixer.init()
+    pygame.mixer.music.load('st.mp3')
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        pass
+    pygame.mixer.quit()
 
+# define a function to play the story
+def play_story(story):
+    # convert the story to speech
+    tts = gTTS(stories[story])
+    tts.save('story.mp3')
+    # play the speech
+    pygame.mixer.init()
+    pygame.mixer.music.load('story.mp3')
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        pass
+    pygame.mixer.quit()
 
+# call the Saluting function to greet the user
+Saluting("Welcome!")
 
-# def download():
-#     print()
+# loop forever to listen for voice commands
+while True:
+    with sr.Microphone() as source:
+        print("Listening...")
+        # listen for a voice command
+        audio = r.listen(source)
+        print(audio)  # print the captured audio
 
-#icon
-image_icon =PhotoImage(file="speak.png")
-root.iconphoto(False,image_icon)
+        try:
+            # recognize the voice command
+            command = r.recognize_google(audio)
+            print(f"You said: {command}")
 
-#Top Frame
-Top_frame =Frame(root,bg="white",width=900,height=100)
-Top_frame.place(x=0,y=0)
+            # check if the command contains the word "salute"
+            if "salute" in command.lower():
+                # play a sound or speech clip that represents a salute
+                playsound('salute.mp3')
+            else:
+                # try to match the command to a story
+                for story in stories:
+                    if story in command.lower():
+                        print(f"Playing {story}...")
+                        play_story(story)
+                        break
+                else:
+                    print("Sorry, I didn't understand that.")
 
-Logo=PhotoImage(file="microphone.png")
-Label(Top_frame,image=Logo,bg="white").place(x=10,y=5)
-
-Label(Top_frame,text="TEXT TO SPEECH",font="arial 20 bold",bg="white",fg="black").place(x=130,y=30)
-
-
-###########################
-
-text_1area=Text(root,font="Robote 15",bg="white",relief=GROOVE,wrap=WORD)
-text_1area.place(x=10,y=150,width=500,height=250)
-
-Label(root,text="VOICE",font="arial 15 bold",bg="#305065",fg="white").place(x=580,y=160)
-Label(root,text="SPEED",font="arial 15 bold",bg="#305065",fg="white").place(x=760,y=160)
-
-
-gender_combobox=Combobox(root,values=['Male','Female'],font="arial 14",state='r',width=10)
-gender_combobox.place(x=550,y=200)
-gender_combobox.set("Male")
-
-speed_combobox=Combobox(root,values=['Fast','Normal','Slow'],font="arial 14",state='r',width=10)
-speed_combobox.place(x=730,y=200)
-speed_combobox.set('Normal')
-
-imageicon=PhotoImage (file="speak.png")
-btn=Button(root, text= "Speak" , compound=LEFT, image=imageicon,width=130, font="arial 14 bold",command=speak_now)
-btn.place(x=550,y=280)
-
-# imageicon2=PhotoImage (file="download.png")
-# save=Button(root, text= "Speak" , compound=LEFT, image=imageicon2,width=130, font="arial 14 bold",command=download)
-# save.place(x=730,y=280)
-
-
-root.mainloop()
+        except sr.UnknownValueError:
+            print("Sorry, I didn't understand that.")
+        except sr.RequestError:
+            print("Sorry, I couldn't connect to the service.")
