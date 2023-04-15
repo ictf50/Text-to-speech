@@ -5,6 +5,7 @@ import os
 import threading
 from playsound import playsound
 from pathlib import Path
+import tkinter as tk
 import uuid
 
 class Saluting:
@@ -69,11 +70,12 @@ class VoiceControl:
         self.saluting = saluting
         self.story_player = story_player
         self.story_player.stop_flag = False
+        self.running = True
 
     def start(self):
         threading.Thread(target=self.saluting.greet).start()
 
-        while True:
+        while self.running:
             with sr.Microphone() as source:
                 print("Listening...")
                 audio = self.r.listen(source, timeout=1, phrase_time_limit=3)
@@ -120,8 +122,54 @@ class VoiceControl:
                 except sr.WaitTimeoutError:
                     print("Timeout reached, please try again.")
 
+class VoiceControlUI:
+    def __init__(self, voice_control):
+        self.voice_control = voice_control
+        self.voice_control_thread = None
+
+    def animate_background(self, canvas, frame=0):
+        canvas.delete("all")
+        for i in range(0, 400, 20):
+            canvas.create_line(i, frame % 400, 400 - frame % 400 + i, 0, fill="white")
+            canvas.create_line(0, 400 - frame % 400 + i, i, 400, fill="white")
+        canvas.after(50, self.animate_background, canvas, frame + 10)
+
+    def run(self):
+        def start_voice_control():
+            self.voice_control_thread = threading.Thread(target=self.voice_control.start)
+            self.voice_control_thread.start()
+
+        def stop_and_exit():
+            self.voice_control.story_player.stop_flag = True
+            self.voice_control.story_player.pause_event.set()
+            self.voice_control.running = False  # Add this line
+
+            if self.voice_control_thread and self.voice_control_thread.is_alive():
+                self.voice_control_thread.join()
+
+            root.destroy()
+
+        root = tk.Tk()
+        root.geometry("400x400")
+        root.title("Voice Control")
+
+        canvas = tk.Canvas(root, bg="black", width=400, height=400)
+        canvas.pack()
+
+        self.animate_background(canvas)
+
+        start_button = tk.Button(root, text="Start", command=start_voice_control, bg="white", fg="black", font=("Arial", 14), activebackground="blue")
+        start_button.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+
+        exit_button = tk.Button(root, text="Exit", command=stop_and_exit, bg="white", fg="black", font=("Arial", 14), activebackground="blue")
+        exit_button.place(relx=0.5, rely=0.6, anchor=tk.CENTER)
+
+        root.mainloop()
+
 if __name__ == '__main__':
     saluting = Saluting("Welcome!")
     story_player = StoryPlayer("stories")
     voice_control = VoiceControl(saluting, story_player)
-    voice_control.start()
+    ui = VoiceControlUI(voice_control)
+    ui.run()
+
